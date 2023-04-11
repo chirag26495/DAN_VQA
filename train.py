@@ -40,13 +40,17 @@ def main(args):
         num_layers=args.num_layers,
         hidden_size=args.hidden_size).to(device)
 
-    criterion = nn.CrossEntropyLoss()
 
     params = list(model.img_encoder.fc.parameters()) \
         + list(model.qst_encoder.parameters()) \
         + list(model.fc1.parameters()) \
         + list(model.fc2.parameters())
 
+
+    ## Data Parallel for larger batch size
+    model = nn.DataParallel(model)
+
+    criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(params, lr=args.learning_rate)
     scheduler = lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
 
