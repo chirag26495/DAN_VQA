@@ -55,7 +55,7 @@ class VqaDataset(data.Dataset):
         return len(self.vqa)
 
 
-def get_loader(input_dir, input_vqa_train, input_vqa_valid, max_qst_length, max_num_ans, batch_size, num_workers):
+def get_loader(input_dir, input_vqa_train, input_vqa_valid, max_qst_length, max_num_ans, batch_size, num_workers, subset=None):
 
     transform = {
         phase: transforms.Compose([transforms.ToTensor(),
@@ -63,19 +63,39 @@ def get_loader(input_dir, input_vqa_train, input_vqa_valid, max_qst_length, max_
                                                         (0.229, 0.224, 0.225))]) 
         for phase in ['train', 'valid']}
 
-    vqa_dataset = {
-        'train': VqaDataset(
-            input_dir=input_dir,
-            input_vqa=input_vqa_train,
-            max_qst_length=max_qst_length,
-            max_num_ans=max_num_ans,
-            transform=transform['train']),
-        'valid': VqaDataset(
-            input_dir=input_dir,
-            input_vqa=input_vqa_valid,
-            max_qst_length=max_qst_length,
-            max_num_ans=max_num_ans,
-            transform=transform['valid'])}
+    if subset is None:
+        vqa_dataset = {
+            'train': VqaDataset(
+                input_dir=input_dir,
+                input_vqa=input_vqa_train,
+                max_qst_length=max_qst_length,
+                max_num_ans=max_num_ans,
+                transform=transform['train']),
+            'valid': VqaDataset(
+                input_dir=input_dir,
+                input_vqa=input_vqa_valid,
+                max_qst_length=max_qst_length,
+                max_num_ans=max_num_ans,
+                transform=transform['valid'])}
+    else:
+        vqa_dataset = {
+            'train': torch.utils.data.Subset(
+                VqaDataset(
+                    input_dir=input_dir,
+                    input_vqa=input_vqa_train,
+                    max_qst_length=max_qst_length,
+                    max_num_ans=max_num_ans,
+                    transform=transform['train']),
+                range(subset)),
+            'valid': torch.utils.data.Subset(
+                VqaDataset(
+                    input_dir=input_dir,
+                    input_vqa=input_vqa_valid,
+                    max_qst_length=max_qst_length,
+                    max_num_ans=max_num_ans,
+                    transform=transform['valid']),
+                range(subset))
+        }
 
     data_loader = {
         phase: torch.utils.data.DataLoader(

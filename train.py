@@ -6,7 +6,9 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
 from data_loader import get_loader
-from models import VqaModel
+
+# from models import VqaModel
+from models_2 import VqaModel
 
 ## To avoid Cuda out of Memory Error (if doesn't work, try reducing batch size)
 torch.cuda.empty_cache()
@@ -26,11 +28,17 @@ def main(args):
         max_qst_length=args.max_qst_length,
         max_num_ans=args.max_num_ans,
         batch_size=args.batch_size,
-        num_workers=args.num_workers)
+        num_workers=args.num_workers,
+        subset=args.subset)
 
-    qst_vocab_size = data_loader['train'].dataset.qst_vocab.vocab_size
-    ans_vocab_size = data_loader['train'].dataset.ans_vocab.vocab_size
-    ans_unk_idx = data_loader['train'].dataset.ans_vocab.unk2idx
+    if isinstance(data_loader['train'].dataset, torch.utils.data.Subset):
+        qst_vocab_size = data_loader['train'].dataset.dataset.qst_vocab.vocab_size
+        ans_vocab_size = data_loader['train'].dataset.dataset.ans_vocab.vocab_size
+        ans_unk_idx = data_loader['train'].dataset.dataset.ans_vocab.unk2idx
+    else:
+        qst_vocab_size = data_loader['train'].dataset.qst_vocab.vocab_size
+        ans_vocab_size = data_loader['train'].dataset.ans_vocab.vocab_size
+        ans_unk_idx = data_loader['train'].dataset.ans_vocab.unk2idx
 
     model = VqaModel(
         embed_size=args.embed_size,
@@ -38,17 +46,25 @@ def main(args):
         ans_vocab_size=ans_vocab_size,
         word_embed_size=args.word_embed_size,
         num_layers=args.num_layers,
-        hidden_size=args.hidden_size).to(device)
-
+        # hidden_size=args.hidden_size).to(device)
+        hidden_size=args.hidden_size)
 
     params = list(model.img_encoder.fc.parameters()) \
         + list(model.qst_encoder.parameters()) \
         + list(model.fc1.parameters()) \
         + list(model.fc2.parameters())
 
+    # params = list(model.module.img_encoder.fc.parameters()) \
+    #     + list(model.module.qst_encoder.parameters()) \
+    #     + list(model.module.fc1.parameters()) \
+    #     + list(model.module.fc2.parameters())
 
-    ## Data Parallel for larger batch size
-    model = nn.DataParallel(model)
+    if torch.cuda.device_count() > 1:
+        print("Using", torch.cuda.device_count(), "GPUs.")
+        # dim = 0 [40, xxx] -> [10, ...], [10, ...], [10, ...], [10, ...] on 4 GPUs
+        model = nn.DataParallel(model)
+
+    model.to(device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(params, lr=args.learning_rate)
@@ -88,8 +104,7 @@ def main(args):
                     if phase == 'train':
                         loss.backward()
                         optimizer.step()
-                        scheduler.step()
-
+                
                 # Evaluation metric of 'multiple choice'
                 # Exp1: our model prediction to '<unk>' IS accepted as the answer.
                 # Exp2: our model prediction to '<unk>' is NOT accepted as the answer.
@@ -102,6 +117,10 @@ def main(args):
                 if batch_idx % 100 == 0:
                     print('| {} SET | Epoch [{:02d}/{:02d}], Step [{:04d}/{:04d}], Loss: {:.4f}'
                           .format(phase.upper(), epoch+1, args.num_epochs, batch_idx, int(batch_step_size), loss.item()))
+
+            # Update the learning rate.
+            if phase == 'train':
+                scheduler.step()
 
             # Print the average loss and accuracy in an epoch.
             epoch_loss = running_loss / batch_step_size
@@ -168,9 +187,6 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', type=float, default=0.1,
                         help='multiplicative factor of learning rate decay.')
 
-    # parser.add_argument('--num_epochs', type=int, default=30,
-    #                     help='number of epochs.')
-
     parser.add_argument('--num_epochs', type=int, default=30,
                         help='number of epochs.')
 
@@ -180,7 +196,10 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', type=int, default=8,
                         help='number of processes working on cpu.')
 
-    parser.add_argument('--save_step', type=int, default=10,
+    parser.add_argument('--subset', type=int, default=None,
+                        help='subset size of dataset.')
+
+    parser.add_argument('--save_step', type=int, default=1,
                         help='save step of model.')
 
     args = parser.parse_args()

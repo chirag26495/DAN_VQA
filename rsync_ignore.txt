@@ -1,6 +1,7 @@
 **/.git
 
 **/datasets
+**/datasets.tar
 *.pth
 
 **/__pycache__
