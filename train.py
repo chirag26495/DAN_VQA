@@ -8,7 +8,10 @@ from torch.optim import lr_scheduler
 from data_loader import get_loader
 
 # from models import VqaModel
-from models_2 import VqaModel
+# from models_2 import VqaModel
+# from models_3 import VqaModel
+# from models_4 import VqaModel
+from models_5 import VqaModel
 
 ## To avoid Cuda out of Memory Error (if doesn't work, try reducing batch size)
 torch.cuda.empty_cache()
@@ -47,17 +50,22 @@ def main(args):
         word_embed_size=args.word_embed_size,
         num_layers=args.num_layers,
         # hidden_size=args.hidden_size).to(device)
-        hidden_size=args.hidden_size)
+        hidden_size=args.hidden_size,
+        stack_size=args.stack_size)
 
-    params = list(model.img_encoder.fc.parameters()) \
-        + list(model.qst_encoder.parameters()) \
-        + list(model.fc1.parameters()) \
-        + list(model.fc2.parameters())
+    # params = list(model.img_encoder.fc.parameters()) \
+    #     + list(model.qst_encoder.parameters()) \
+    #     # + list(model.fc0.parameters()) \
+    #     + list(model.fc1.parameters()) \
+    #     + list(model.fc2.parameters())
 
-    # params = list(model.module.img_encoder.fc.parameters()) \
-    #     + list(model.module.qst_encoder.parameters()) \
-    #     + list(model.module.fc1.parameters()) \
-    #     + list(model.module.fc2.parameters())
+    # params = list(model.img_encoder.fc.parameters()) \
+    #     + list(model.qst_encoder.parameters()) \
+    #     + list(model.san.parameters()) \
+    #     + list(model.mlp.parameters())
+
+    params = list(model.parameters())
+
 
     if torch.cuda.device_count() > 1:
         print("Using", torch.cuda.device_count(), "GPUs.")
@@ -116,7 +124,7 @@ def main(args):
                 # Print the average loss in a mini-batch.
                 if batch_idx % 100 == 0:
                     print('| {} SET | Epoch [{:02d}/{:02d}], Step [{:04d}/{:04d}], Loss: {:.4f}'
-                          .format(phase.upper(), epoch+1, args.num_epochs, batch_idx, int(batch_step_size), loss.item()))
+                          .format(phase.upper(), epoch+1, args.num_epochs, batch_idx, int(batch_step_size), loss.item()), flush=True)
 
             # Update the learning rate.
             if phase == 'train':
@@ -128,7 +136,7 @@ def main(args):
             epoch_acc_exp2 = running_corr_exp2.double() / len(data_loader[phase].dataset)      # multiple choice
 
             print('| {} SET | Epoch [{:02d}/{:02d}], Loss: {:.4f}, Acc(Exp1): {:.4f}, Acc(Exp2): {:.4f} \n'
-                  .format(phase.upper(), epoch+1, args.num_epochs, epoch_loss, epoch_acc_exp1, epoch_acc_exp2))
+                  .format(phase.upper(), epoch+1, args.num_epochs, epoch_loss, epoch_acc_exp1, epoch_acc_exp2), flush=True)
 
             # Log the loss and accuracy in an epoch.
             with open(os.path.join(args.log_dir, '{}-log-epoch-{:02}.txt')
@@ -141,7 +149,7 @@ def main(args):
         # Save the model check points.
         if ((epoch+1) % args.save_step == 0) or ((epoch+1) == args.num_epochs):
             torch.save({'epoch': epoch+1, 'state_dict': model.state_dict()},
-                       os.path.join(args.model_dir, 'model-epoch-{:02d}.ckpt'.format(epoch+1)))
+                       os.path.join(args.model_dir, '{:}-epoch-{:02d}.ckpt'.format(args.save_name, epoch+1)))
 
 
 if __name__ == '__main__':
@@ -195,12 +203,20 @@ if __name__ == '__main__':
 
     parser.add_argument('--num_workers', type=int, default=8,
                         help='number of processes working on cpu.')
+    
+    parser.add_argument('--save_step', type=int, default=1,
+                        help='save step of model.')
+
+    # -----------------------------------------------------------------------
+    
+    parser.add_argument('--save_name', type=str, default="model",
+                        help='save step of model.')
 
     parser.add_argument('--subset', type=int, default=None,
                         help='subset size of dataset.')
 
-    parser.add_argument('--save_step', type=int, default=1,
-                        help='save step of model.')
+    parser.add_argument('--stack_size', type=int, default=1,
+                        help='number of attention layers.')
 
     args = parser.parse_args()
 

@@ -80,45 +80,66 @@ class QstEncoder(nn.Module):
         return qst_feature
 
 
+class Attention(nn.Module):
+
+    def __init__(self, embed_size, num_channels, dropout=True):
+
+        super(Attention, self).__init__()
+
+        self.ff_image = nn.Linear(embed_size, num_channels)
+        self.ff_questions = nn.Linear(embed_size, num_channels)
+        self.ff_attention = nn.Linear(num_channels, 1)
+
+        if dropout:
+            self.dropout = nn.Dropout(p=0.5)
+
+    def forward(self, vi, vq):
+
+        hi = self.ff_image(vi)
+        hq = self.ff_questions(vq).unsqueeze(dim=1)
+
+        ha = torch.tanh(hi + hq)
+        if self.dropout:
+            ha = self.dropout(ha)
+        ha = self.ff_attention(ha)
+
+        pi = torch.softmax(ha, dim=1)
+        self.pi = pi
+
+        vi_attended = (pi * vi).sum(dim=1)
+        u = vi_attended + vq
+
+        return u
+
+
 class VqaModel(nn.Module):
 
-    def __init__(self, embed_size, qst_vocab_size, ans_vocab_size, word_embed_size, num_layers, hidden_size):
+    def __init__(self, embed_size, qst_vocab_size, ans_vocab_size, word_embed_size, num_layers, hidden_size, stack_size=1):
 
         super(VqaModel, self).__init__()
+
+        self.num_attention_layer = stack_size
+
         self.img_encoder = ImgEncoder(embed_size)
         self.qst_encoder = QstEncoder(qst_vocab_size, word_embed_size, embed_size, num_layers, hidden_size)
+
+        self.san = nn.ModuleList([Attention(embed_size, 512)] * self.num_attention_layer)
+        self.mlp = nn.Sequential(nn.Dropout(p=0.5),
+                                 nn.Linear(embed_size, ans_vocab_size))
 
         self.tanh = nn.Tanh()
         self.dropout = nn.Dropout(0.5)
 
-        self.fc0 = nn.Linear(196, 1)
-        self.fc1 = nn.Linear(embed_size, ans_vocab_size)
-        self.fc2 = nn.Linear(ans_vocab_size, ans_vocab_size)
+        self.attn_features = []  ## attention features
 
     def forward(self, img, qst):
 
         img_feature = self.img_encoder(img)                     # [batch_size, 196, embed_size]
-
         qst_feature = self.qst_encoder(qst)                     # [batch_size, embed_size]
-        qst_feature = qst_feature.unsqueeze(dim=1)              # [batch_size, 1, embed_size]
 
-        # combined_feature = torch.mul(img_feature, qst_feature)    # [batch_size, embed_size]
-                                                                   
-        combined_feature = self.tanh(img_feature + qst_feature)     # [batch_size, 196, embed_size]
-        combined_feature = combined_feature.transpose(1, 2)         # [batch_size, embed_size, 196]
+        for attn_layer in self.san:
+            qst_feature = attn_layer(img_feature, qst_feature)
+            self.attn_features.append(attn_layer.pi)
 
-        
-        # combined_feature = combined_feature.sum(dim=1)            # [batch_size, embed_size]
-        combined_feature = self.fc0(combined_feature)
-        combined_feature = combined_feature.squeeze(dim=2)
-
-        combined_feature = self.tanh(combined_feature)
-        combined_feature = self.dropout(combined_feature)
-
-        combined_feature = self.fc1(combined_feature)           # [batch_size, ans_vocab_size=1000]
-        combined_feature = self.tanh(combined_feature)
-
-        combined_feature = self.dropout(combined_feature)
-        combined_feature = self.fc2(combined_feature)           # [batch_size, ans_vocab_size=1000]
-
-        return combined_feature
+        answer = self.mlp(qst_feature)
+        return answer
