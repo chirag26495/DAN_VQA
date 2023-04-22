@@ -10,8 +10,8 @@ from data_loader import get_loader
 # from models import VqaModel
 # from models_2 import VqaModel
 # from models_3 import VqaModel
-# from models_4 import VqaModel
-from models_5 import VqaModel
+from models_4 import VqaModel
+# from models_5 import VqaModel
 
 ## To avoid Cuda out of Memory Error (if doesn't work, try reducing batch size)
 torch.cuda.empty_cache()

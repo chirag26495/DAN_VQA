@@ -139,7 +139,9 @@ class VqaModel(nn.Module):
 
         for attn_layer in self.san:
             qst_feature = attn_layer(img_feature, qst_feature)
-            self.attn_features.append(attn_layer.pi)
+
+            ## Don't do this while training (cuda memory error)
+            # self.attn_features.append(attn_layer.pi)
 
         answer = self.mlp(qst_feature)
         return answer
