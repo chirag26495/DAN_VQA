@@ -147,7 +147,9 @@ class Attention(nn.Module):
         # self.pi = pi
         vi_attended = (pi * vi).sum(dim=1)
         u = vi_attended + vq
+
         return u, pi
+        # return u, ha
 
 class SANModel(nn.Module):
     # num_attention_layer and num_mlp_layer not implemented yet
@@ -190,6 +192,11 @@ class TripletLoss(nn.Module):
     def forward(self, anchor: torch.Tensor, positive: torch.Tensor, negative: torch.Tensor) -> torch.Tensor:
         distance_positive = self.calc_euclidean(anchor, positive)
         distance_negative = self.calc_euclidean(anchor, negative)
+        
+        # print(f'distance_negative: {distance_negative}', flush=True)
+        # print(f'distance_positive: {distance_positive}', flush=True)
+        # print()
+
         losses = torch.relu(distance_positive - distance_negative + self.margin)
 
         return losses.mean()

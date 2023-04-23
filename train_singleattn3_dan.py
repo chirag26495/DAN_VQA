@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
 from data_loader_dan import get_loader
+# from data_loader_dan_2 import get_loader
 from models_singleattn3_dan import VqaModel, SANModel, TripletLoss
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -53,13 +54,21 @@ def main(args):
     #     num_layers=args.num_layers,
     #     hidden_size=args.hidden_size)).to(device)
 
-    criterion = nn.CrossEntropyLoss()
+    if torch.cuda.device_count() > 1:
+        print("Using", torch.cuda.device_count(), "GPUs.")
+        # dim = 0 [40, xxx] -> [10, ...], [10, ...], [10, ...], [10, ...] on 4 GPUs
+        model = nn.DataParallel(model)
+
     #### margin value to be decided on the basis of validation data
     margin = 0.2
-    criterion2 = TripletLoss(margin)
-    # criterion2 = torch.jit.script(TripletLoss(margin))
+
     #### v_weightage value (for triplet vs classification loss ratio) to be decided on the basis of validation data
     v_weightage = 1.0
+    # v_weightage = 4.0
+
+    criterion = nn.CrossEntropyLoss()
+    criterion2 = TripletLoss(margin)
+    # criterion2 = torch.jit.script(TripletLoss(margin))
 
     #params = list(model.qst_encoder.parameters()) \
     #    + list(model.san.parameters()) \
@@ -77,7 +86,8 @@ def main(args):
 
     for epoch in range(args.num_epochs):
 
-        for phase in ['train', 'valid']:
+        # for phase in ['train', 'valid']:
+        for phase in ['train']:
 
             running_loss = 0.0
             running_ce_loss = 0.0
@@ -135,7 +145,7 @@ def main(args):
                 # Print the average loss in a mini-batch.
                 if batch_idx % 100 == 0:
                     print('| {} SET | Epoch [{:02d}/{:02d}], Step [{:04d}/{:04d}], Loss: {:.4f}, ce_Loss: {:.4f}, triplet_Loss: {:.4f}'
-                          .format(phase.upper(), epoch+1, args.num_epochs, batch_idx, int(batch_step_size), loss.item(), ce_loss.item(), triplet_loss.item()))
+                          .format(phase.upper(), epoch+1, args.num_epochs, batch_idx, int(batch_step_size), loss.item(), ce_loss.item(), triplet_loss.item()), flush=True)
 
             # Print the average loss and accuracy in an epoch.
             epoch_loss = running_loss / batch_step_size
@@ -145,7 +155,7 @@ def main(args):
             epoch_acc_exp2 = running_corr_exp2.double() / len(data_loader[phase].dataset)      # multiple choice
 
             print('| {} SET | Epoch [{:02d}/{:02d}], Loss: {:.4f}, ce_Loss: {:.4f}, triplet_Loss: {:.4f}, Acc(Exp1): {:.4f}, Acc(Exp2): {:.4f} \n'
-                  .format(phase.upper(), epoch+1, args.num_epochs, epoch_loss, epoch_ce_loss, epoch_triplet_loss, epoch_acc_exp1, epoch_acc_exp2))
+                  .format(phase.upper(), epoch+1, args.num_epochs, epoch_loss, epoch_ce_loss, epoch_triplet_loss, epoch_acc_exp1, epoch_acc_exp2), flush=True)
 
             # Log the loss and accuracy in an epoch.
             with open(os.path.join(args.log_dir, '{}-{}-log-epoch-{:02}.txt')
@@ -157,9 +167,10 @@ def main(args):
                         + str(epoch_ce_loss) + '\t'
                         + str(epoch_triplet_loss))
 
-            if phase == 'valid':
+            # if phase == 'valid':
+            if phase == 'train':
                 if epoch_loss < best_loss:
-                    print("At epoch:",epoch+1,"best loss from:\t",best_loss, "\tto\t",epoch_loss)
+                    print("At epoch:",epoch+1,"best loss from:\t",best_loss, "\tto\t",epoch_loss, flush=True)
                     best_loss = epoch_loss
                     torch.save(model, os.path.join(args.model_dir, '{}-best_model.pt'.format(args.model_name)))
                     torch.save({'epoch': epoch+1, 'state_dict': model.state_dict()}, os.path.join(args.model_dir, '{}-best_model.ckpt'.format(args.model_name)))
@@ -170,13 +181,14 @@ def main(args):
                 if val_increase_count >= early_stop_threshold:
                     stop_training = True
                 prev_loss = epoch_loss
+
         # # Save the model check points.
         # if (epoch+1) % args.save_step == 0:
         #     torch.save({'epoch': epoch+1, 'state_dict': model.state_dict()},
         #                os.path.join(args.model_dir, 'model-epoch-{:02d}.ckpt'.format(epoch+1)))
         
         scheduler.step()
-        print("lr val:",optimizer.state_dict()['param_groups'][0]['lr'])
+        print("lr val:",optimizer.state_dict()['param_groups'][0]['lr'], flush=True)
 
 
 if __name__ == '__main__':
