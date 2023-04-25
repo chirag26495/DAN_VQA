@@ -37,6 +37,10 @@ $ cd ..
 $ python train.py
 ```
 
+## Pretrained Models and Cluster Mappings
+
+- Download: https://iiitaphyd-my.sharepoint.com/:f:/g/personal/adhiraj_deshmukh_research_iiit_ac_in/EvyW0gTi2LRNiJkhjq481zMBk9aRolCkIE-invan8o17hQ?e=dNvGIg
+
 ## Results
 
 - Comparison Result
