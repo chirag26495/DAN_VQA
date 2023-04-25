@@ -1,0 +1,11 @@
+**/.git
+
+**/datasets
+**/datasets.tar
+*.pth
+
+**/__pycache__
+**/.ipynb_checkpoints
+**/.vscode
+**/env
+**/.env

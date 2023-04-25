@@ -1,0 +1,29 @@
+# Basic shit
+
+numpy
+pandas
+matplotlib
+opencv-contrib-python
+tqdm
+
+# Jupyter related
+
+jupyterlab
+ipython
+ipykernel
+ipywidgets
+jupyterlab_widgets
+jupyterlab-vim
+# conda install -c conda-forge jupyterlab_vim
+
+# Specific to environemt
+
+numpy
+matplotlib
+
+torch
+torchvision
+torchaudio
+
+argparse
+regex
