@@ -42,7 +42,7 @@ $ python train.py
 - Comparison Result
 
 | Model | Metric | Dataset | Accuracy |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | --- |
 | basic_vqa | All | VQA v2 | 47.61 |
 | SAN-1 | All | VQA v2 | 53.23 |
 | SAN-2 | All | VQA v2 | 55.28 |
