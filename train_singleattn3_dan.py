@@ -5,7 +5,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
-from data_loader_dan import get_loader
+# from data_loader_dan import get_loader
+from data_loader_dan_2 import get_loader
 # from data_loader_dan_2 import get_loader
 from models_singleattn3_dan import VqaModel, SANModel, TripletLoss
 
@@ -45,26 +46,29 @@ def main(args):
         ans_vocab_size=ans_vocab_size,
         word_embed_size=args.word_embed_size,
         num_layers=args.num_layers,
-        hidden_size=args.hidden_size).to(device)
+        hidden_size=args.hidden_size)
+
     # model = torch.jit.script(SANModel(
     #     embed_size=args.embed_size,
     #     qst_vocab_size=qst_vocab_size,
     #     ans_vocab_size=ans_vocab_size,
     #     word_embed_size=args.word_embed_size,
     #     num_layers=args.num_layers,
-    #     hidden_size=args.hidden_size)).to(device)
+    #     hidden_size=args.hidden_size))
 
-    if torch.cuda.device_count() > 1:
+    if torch.cuda.device_count() > 0:
         print("Using", torch.cuda.device_count(), "GPUs.")
         # dim = 0 [40, xxx] -> [10, ...], [10, ...], [10, ...], [10, ...] on 4 GPUs
         model = nn.DataParallel(model)
+
+    model = model.to(device)
 
     #### margin value to be decided on the basis of validation data
     margin = 0.2
 
     #### v_weightage value (for triplet vs classification loss ratio) to be decided on the basis of validation data
     v_weightage = 1.0
-    # v_weightage = 4.0
+    # v_weightage = 10.0
 
     criterion = nn.CrossEntropyLoss()
     criterion2 = TripletLoss(margin)
@@ -86,8 +90,7 @@ def main(args):
 
     for epoch in range(args.num_epochs):
 
-        # for phase in ['train', 'valid']:
-        for phase in ['train']:
+        for phase in ['train', 'valid']:
 
             running_loss = 0.0
             running_ce_loss = 0.0
@@ -122,11 +125,14 @@ def main(args):
                     _, pred_exp2 = torch.max(output, 1)  # [batch_size]
                     ce_loss = criterion(output, label)
                     
-                    _, supporting_example_attn_scores = model(supporting_example_image, question)      # [batch_size, ans_vocab_size=1000, attn_scores=196]
-                    _, opposing_example_attn_scores = model(opposing_example_image, question)      # [batch_size, ans_vocab_size=1000, attn_scores=196]
+                    if phase == 'train':
+                        _, supporting_example_attn_scores = model(supporting_example_image, question)      # [batch_size, ans_vocab_size=1000, attn_scores=196]
+                        _, opposing_example_attn_scores = model(opposing_example_image, question)      # [batch_size, ans_vocab_size=1000, attn_scores=196]
                     
-                    triplet_loss = criterion2(attn_scores, supporting_example_attn_scores, opposing_example_attn_scores)
-                    loss = ce_loss + v_weightage * triplet_loss
+                        triplet_loss = criterion2(attn_scores, supporting_example_attn_scores, opposing_example_attn_scores)
+                        loss = ce_loss + v_weightage * triplet_loss
+                    else:
+                        loss = ce_loss
 
                     if phase == 'train':
                         loss.backward()
@@ -167,8 +173,7 @@ def main(args):
                         + str(epoch_ce_loss) + '\t'
                         + str(epoch_triplet_loss))
 
-            # if phase == 'valid':
-            if phase == 'train':
+            if phase == 'valid':
                 if epoch_loss < best_loss:
                     print("At epoch:",epoch+1,"best loss from:\t",best_loss, "\tto\t",epoch_loss, flush=True)
                     best_loss = epoch_loss
