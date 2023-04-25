@@ -54,7 +54,4 @@ $ python train.py
 | DAN-alt. | All | VQA v2 | 54.16 | 
 
 
-- DAN Loss and Accuracy on VQA datasets v2
-
-![train](./png/train.png)
 
