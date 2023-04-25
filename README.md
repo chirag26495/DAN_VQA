@@ -37,21 +37,21 @@ $ cd ..
 $ python train.py
 ```
 
-## Pretrained Models and Exemplar Mappings
+## Pretrained Models and Exemplar Mappings (using VQA2.0 dataset)
 
 - Download: https://iiitaphyd-my.sharepoint.com/:f:/g/personal/adhiraj_deshmukh_research_iiit_ac_in/EvyW0gTi2LRNiJkhjq481zMBk9aRolCkIE-invan8o17hQ?e=dNvGIg
 
 ## Results
 
-- Comparison Result
+- Quantitative comparison on VQA2.0 Validation set 
 
 | Model | Metric | Dataset | Accuracy |
 | --- | --- | --- | --- |
-| basic_vqa | All | VQA v2 | 47.61 |
-| SAN-1 | All | VQA v2 | 53.23 |
+| Basic (LQI) | All | VQA v2 | 47.61 |
+| Baseline (LQIA) | All | VQA v2 | 53.23 |
 | SAN-2 | All | VQA v2 | 55.28 |
-| DAN | All | VQA v2 | **55.49** |
-| DAN-alt. | All | VQA v2 | 54.16 | 
+| DAN + LQIA | All | VQA v2 | **55.49** |
+| DAN-alt. + LQIA | All | VQA v2 | 54.16 | 
 
 
 
